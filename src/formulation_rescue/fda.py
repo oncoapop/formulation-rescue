@@ -32,6 +32,145 @@ _DRUGS_REQUIRED = {
     "marketingstatus_lookup.txt",
 }
 
+_REQUIRED_HEADERS = {
+    "products.txt:~": {
+        "Ingredient",
+        "DF;Route",
+        "Appl_Type",
+        "Appl_No",
+        "Product_No",
+        "Strength",
+    },
+    "patent.txt:~": {
+        "Appl_Type",
+        "Appl_No",
+        "Product_No",
+        "Patent_No",
+        "Patent_Expire_Date_Text",
+    },
+    "exclusivity.txt:~": {
+        "Appl_Type",
+        "Appl_No",
+        "Product_No",
+        "Exclusivity_Code",
+        "Exclusivity_Date",
+    },
+    "applications.txt:\t": {"ApplNo", "ApplType", "SponsorName"},
+    "products.txt:\t": {
+        "ApplNo",
+        "ProductNo",
+        "Form",
+        "Strength",
+        "DrugName",
+        "ActiveIngredient",
+    },
+    "marketingstatus.txt:\t": {"MarketingStatusID", "ApplNo", "ProductNo"},
+    "marketingstatus_lookup.txt:\t": {
+        "MarketingStatusID",
+        "MarketingStatusDescription",
+    },
+}
+
+PARENTERAL_ROUTES = {
+    "intravenous",
+    "intramuscular",
+    "subcutaneous",
+    "intradermal",
+    "intra-arterial",
+    "intrathecal",
+    "epidural",
+    "intraocular",
+    "intravitreal",
+    "intra-articular",
+    "intraperitoneal",
+    "injectable",
+    "infusion",
+    "parenteral",
+}
+
+_ROUTE_ALIASES = {
+    "iv": "intravenous",
+    "i.v.": "intravenous",
+    "intravenous": "intravenous",
+    "im": "intramuscular",
+    "i.m.": "intramuscular",
+    "intramuscular": "intramuscular",
+    "intra muscular": "intramuscular",
+    "sc": "subcutaneous",
+    "sq": "subcutaneous",
+    "s.c.": "subcutaneous",
+    "subcutaneous": "subcutaneous",
+    "sub cutaneous": "subcutaneous",
+    "id": "intradermal",
+    "intradermal": "intradermal",
+    "intra-arterial": "intra-arterial",
+    "intraarterial": "intra-arterial",
+    "intrathecal": "intrathecal",
+    "epidural": "epidural",
+    "intraocular": "intraocular",
+    "intravitreal": "intravitreal",
+    "intra-articular": "intra-articular",
+    "intraarticular": "intra-articular",
+    "intraperitoneal": "intraperitoneal",
+    "injection": "injectable",
+    "injectable": "injectable",
+    "infusion": "infusion",
+    "parenteral": "parenteral",
+}
+
+_KNOWN_NONPARENTERAL_ROUTES = {
+    "auricular (otic)",
+    "buccal",
+    "cutaneous",
+    "dental",
+    "endotracheal",
+    "enteral",
+    "gingival",
+    "inhalation",
+    "implantation",
+    "intra-anal",
+    "intracameral",
+    "intracavitary",
+    "intracavernosal",
+    "intracranial",
+    "intralesional",
+    "intralymphatic",
+    "intranasal",
+    "intrapleural",
+    "intratracheal",
+    "intrauterine",
+    "intraosseous",
+    "intravesical",
+    "intravesicular",
+    "irrigation",
+    "iontophoresis",
+    "nasal",
+    "ophthalmic",
+    "oral",
+    "oropharyngeal",
+    "otic",
+    "periodontal",
+    "perfusion",
+    "pyelocalyceal",
+    "rectal",
+    "sublingual",
+    "topical",
+    "transdermal",
+    "transmucosal",
+    "urethral",
+    "ureteral",
+    "vaginal",
+    "biliary",
+    "endocervical",
+    "infiltration",
+    "interstitial",
+}
+
+_ROUTE_COMPOSITES = {
+    "im-iv": ["intramuscular", "intravenous"],
+    "iv (infusion)": ["intravenous", "infusion"],
+}
+
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -121,6 +260,13 @@ def _rows(source: Path, filename: str, delimiter: str) -> Iterator[dict[str, str
         reader = csv.DictReader(handle, delimiter=delimiter)
         if not reader.fieldnames:
             raise ValueError(f"{filename} has no header")
+        expected = _REQUIRED_HEADERS.get(f"{filename.lower()}:{delimiter}", set())
+        missing = expected - {name.strip() for name in reader.fieldnames}
+        if missing:
+            raise ValueError(
+                f"{filename} is missing required columns: "
+                + ", ".join(sorted(missing))
+            )
         for source_row in reader:
             yield {
                 (key or "").strip(): (value or "").strip()
@@ -149,6 +295,90 @@ def _iso_date(value: str) -> str | None:
         except ValueError:
             continue
     raise ValueError(f"unrecognized FDA date: {value!r}")
+
+
+def _clean_token(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip().casefold())
+
+
+def canonicalize_routes(value: str) -> tuple[list[str], bool, bool]:
+    """Return canonical routes, whether any is parenteral, and unknown evidence."""
+    if not value.strip():
+        return [], False, True
+    canonical: list[str] = []
+    unknown = False
+    for raw_token in value.split(","):
+        token = _clean_token(raw_token)
+        composite = _ROUTE_COMPOSITES.get(token)
+        if composite:
+            for mapped in composite:
+                if mapped not in canonical:
+                    canonical.append(mapped)
+            continue
+        mapped = _ROUTE_ALIASES.get(token)
+        if mapped is None and re.fullmatch(r"oral-\d+", token):
+            mapped = "oral"
+        if mapped is None and token == "periarticular":
+            mapped = "intra-articular"
+        if mapped is None and token in _KNOWN_NONPARENTERAL_ROUTES:
+            mapped = token
+        if mapped is None:
+            unknown = True
+            continue
+        if mapped not in canonical:
+            canonical.append(mapped)
+    return canonical, any(route in PARENTERAL_ROUTES for route in canonical), unknown
+
+
+def canonicalize_dosage_form(value: str) -> tuple[str, bool]:
+    token = _clean_token(value).replace(" :", ":")
+    if not token or token in {"unknown", "n/a", "na"}:
+        return "", True
+    return token, False
+
+
+def _split_form_route(value: str) -> tuple[str, str, bool]:
+    if value.count(";") != 1:
+        return value.strip(), "", True
+    dosage_form, route = value.split(";", 1)
+    return dosage_form.strip(), route.strip(), False
+
+
+def _ingredient_strength_pairs(
+    active_ingredient: str, strength: str
+) -> tuple[list[tuple[str, str | None]], str]:
+    ingredients = _split_ingredients(active_ingredient)
+    if not ingredients:
+        return [], "unknown"
+    normalized = [" ".join(ingredient.split()).casefold() for ingredient in ingredients]
+    if len(set(normalized)) != len(normalized):
+        unique: dict[str, str] = {}
+        for key, ingredient in zip(normalized, ingredients):
+            unique.setdefault(key, ingredient)
+        return [(ingredient, None) for ingredient in unique.values()], (
+            "ambiguous_multi_ingredient_strength"
+        )
+    if not strength.strip():
+        return [(ingredient, None) for ingredient in ingredients], "missing_strength"
+    if len(ingredients) == 1:
+        return [(ingredients[0], strength.strip())], "exact_single_ingredient"
+    strengths = [part.strip() for part in strength.split(";")]
+    if len(strengths) == len(ingredients) and all(strengths):
+        return list(zip(ingredients, strengths)), "exact_multi_ingredient"
+    return [(ingredient, None) for ingredient in ingredients], (
+        "ambiguous_multi_ingredient_strength"
+    )
+
+
+def _marketing_status_class(status: str) -> str:
+    normalized = _clean_token(status)
+    if normalized in {"rx", "prescription", "otc", "over-the-counter"}:
+        return "active"
+    if normalized in {"discn", "discontinued"}:
+        return "discontinued"
+    if "tentative" in normalized or "manufacturing use" in normalized:
+        return "tentative_or_nonmarketed"
+    return "unknown"
 
 
 def _application_number(number: str, application_type: str = "") -> str:
@@ -254,8 +484,7 @@ def _upsert_product(
             route = COALESCE(NULLIF(excluded.route, ''), products.route),
             marketing_status = COALESCE(NULLIF(excluded.marketing_status, ''),
                                         products.marketing_status),
-            is_discontinued = MAX(products.is_discontinued,
-                                  excluded.is_discontinued),
+            is_discontinued = excluded.is_discontinued,
             source_file_id = excluded.source_file_id,
             raw_json = excluded.raw_json
         """,
@@ -281,6 +510,114 @@ def _upsert_product(
     ).fetchone()["id"]
 
 
+def _record_product_observation(
+    connection: sqlite3.Connection,
+    *,
+    product_id: int,
+    source_file_id: int,
+    source_name: str,
+    application_type: str,
+    sponsor_name: str,
+    dosage_form_raw: str,
+    route_raw: str,
+    marketing_status: str,
+    raw_active_ingredient: str,
+    raw_strength: str,
+    mapping_quality: str,
+    raw_json: str,
+    malformed_form_route: bool = False,
+) -> None:
+    routes, parenteral, unknown_route = canonicalize_routes(route_raw)
+    canonical_form, unknown_form = canonicalize_dosage_form(dosage_form_raw)
+    now = datetime.now(timezone.utc).isoformat()
+    connection.execute(
+        """
+        INSERT INTO product_observations (
+            product_id, source_file_id, source_name, active_in_latest_snapshot,
+            application_type, sponsor_name, dosage_form_raw, route_raw,
+            canonical_dosage_form, canonical_route, parenteral_route_signal,
+            unknown_dosage_form, unknown_route, marketing_status,
+            marketing_status_class, raw_active_ingredient, raw_strength,
+            mapping_quality, observed_at, raw_json
+        ) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(product_id, source_file_id) DO UPDATE SET
+            active_in_latest_snapshot = 1,
+            application_type = excluded.application_type,
+            sponsor_name = excluded.sponsor_name,
+            dosage_form_raw = excluded.dosage_form_raw,
+            route_raw = excluded.route_raw,
+            canonical_dosage_form = excluded.canonical_dosage_form,
+            canonical_route = excluded.canonical_route,
+            parenteral_route_signal = excluded.parenteral_route_signal,
+            unknown_dosage_form = excluded.unknown_dosage_form,
+            unknown_route = excluded.unknown_route,
+            marketing_status = excluded.marketing_status,
+            marketing_status_class = excluded.marketing_status_class,
+            raw_active_ingredient = excluded.raw_active_ingredient,
+            raw_strength = excluded.raw_strength,
+            mapping_quality = excluded.mapping_quality,
+            observed_at = excluded.observed_at,
+            raw_json = excluded.raw_json
+        """,
+        (
+            product_id,
+            source_file_id,
+            source_name,
+            application_type,
+            sponsor_name,
+            dosage_form_raw,
+            route_raw,
+            canonical_form,
+            "; ".join(routes),
+            int(parenteral),
+            int(unknown_form),
+            int(unknown_route or malformed_form_route),
+            marketing_status,
+            _marketing_status_class(marketing_status),
+            raw_active_ingredient,
+            raw_strength,
+            mapping_quality,
+            now,
+            raw_json,
+        ),
+    )
+
+
+def _replace_product_ingredients(
+    connection: sqlite3.Connection,
+    product_id: int,
+    raw_active_ingredient: str,
+    raw_strength: str,
+    raw_json: str,
+) -> tuple[int, str]:
+    pairs, mapping_quality = _ingredient_strength_pairs(
+        raw_active_ingredient, raw_strength
+    )
+    connection.execute(
+        "DELETE FROM product_ingredients WHERE product_id = ?", (product_id,)
+    )
+    for ingredient, strength in pairs:
+        ingredient_id = _ingredient_id(connection, ingredient, raw_json)
+        connection.execute(
+            """
+            INSERT INTO product_ingredients (
+                product_id, ingredient_id, strength, raw_active_ingredient,
+                raw_strength, mapping_quality, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                product_id,
+                ingredient_id,
+                strength,
+                raw_active_ingredient,
+                raw_strength,
+                mapping_quality,
+                raw_json,
+            ),
+        )
+    return len(pairs), mapping_quality
+
+
 def ingest_orange_book(
     source: Path = DEFAULT_ORANGE_BOOK_ARCHIVE,
     db_path: Path = DEFAULT_DB,
@@ -293,13 +630,23 @@ def ingest_orange_book(
         source_id = _register_source(
             connection, "FDA Orange Book", ORANGE_BOOK_URL, source
         )
+        connection.execute(
+            """
+            UPDATE product_observations SET active_in_latest_snapshot = 0
+            WHERE source_name = 'FDA Orange Book'
+            """
+        )
+        connection.execute("UPDATE patents SET ip_active_in_latest_snapshot = 0")
+        connection.execute("UPDATE exclusivities SET ip_active_in_latest_snapshot = 0")
         for row in _rows(source, "products.txt", "~"):
             raw = json.dumps(row, ensure_ascii=False, sort_keys=True)
             application = _application_number(
                 _field(row, "Appl_No"), _field(row, "Appl_Type")
             )
             form_route = _field(row, "DF;Route")
-            dosage_form, _, route = form_route.partition(";")
+            dosage_form, route, malformed_form_route = _split_form_route(form_route)
+            raw_ingredient = _field(row, "Ingredient")
+            raw_strength = _field(row, "Strength")
             product_id = _upsert_product(
                 connection,
                 application_number=application,
@@ -313,20 +660,26 @@ def ingest_orange_book(
                 source_file_id=source_id,
                 raw_json=raw,
             )
-            for ingredient in _split_ingredients(_field(row, "Ingredient")):
-                ingredient_id = _ingredient_id(connection, ingredient, raw)
-                connection.execute(
-                    """
-                    INSERT INTO product_ingredients (
-                        product_id, ingredient_id, strength, raw_json
-                    ) VALUES (?, ?, ?, ?)
-                    ON CONFLICT(product_id, ingredient_id) DO UPDATE SET
-                        strength = excluded.strength,
-                        raw_json = excluded.raw_json
-                    """,
-                    (product_id, ingredient_id, _field(row, "Strength"), raw),
-                )
-                counts["ingredients"] += 1
+            ingredient_count, mapping_quality = _replace_product_ingredients(
+                connection, product_id, raw_ingredient, raw_strength, raw
+            )
+            counts["ingredients"] += ingredient_count
+            _record_product_observation(
+                connection,
+                product_id=product_id,
+                source_file_id=source_id,
+                source_name="FDA Orange Book",
+                application_type=_field(row, "Appl_Type"),
+                sponsor_name=_field(row, "Applicant_Full_Name", "Applicant"),
+                dosage_form_raw=dosage_form,
+                route_raw=route,
+                marketing_status=_field(row, "Type"),
+                raw_active_ingredient=raw_ingredient,
+                raw_strength=raw_strength,
+                mapping_quality=mapping_quality,
+                raw_json=raw,
+                malformed_form_route=malformed_form_route,
+            )
             counts["products"] += 1
 
         product_ids = {
@@ -335,6 +688,7 @@ def ingest_orange_book(
                 "SELECT id, application_number, product_number FROM products"
             )
         }
+        observed_at = datetime.now(timezone.utc).isoformat()
         for row in _rows(source, "patent.txt", "~"):
             key = (
                 _application_number(_field(row, "Appl_No"), _field(row, "Appl_Type")),
@@ -348,10 +702,20 @@ def ingest_orange_book(
                 """
                 INSERT INTO patents (
                     product_id, patent_number, patent_expiry, use_code,
+                    ip_active_in_latest_snapshot, ip_first_seen_at, ip_last_seen_at,
+                    delist_requested_signal, pediatric_extension_signal,
                     source_file_id, raw_json
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(product_id, patent_number, use_code) DO UPDATE SET
                     patent_expiry = excluded.patent_expiry,
+                    ip_active_in_latest_snapshot = 1,
+                    ip_first_seen_at = COALESCE(
+                        patents.ip_first_seen_at, excluded.ip_first_seen_at
+                    ),
+                    ip_last_seen_at = excluded.ip_last_seen_at,
+                    delist_requested_signal = excluded.delist_requested_signal,
+                    pediatric_extension_signal =
+                        excluded.pediatric_extension_signal,
                     source_file_id = excluded.source_file_id,
                     raw_json = excluded.raw_json
                 """,
@@ -360,6 +724,10 @@ def ingest_orange_book(
                     _field(row, "Patent_No"),
                     _iso_date(_field(row, "Patent_Expire_Date_Text", "Patent_Expire_Date")),
                     _field(row, "Patent_Use_Code"),
+                    observed_at,
+                    observed_at,
+                    int(_field(row, "Delist_Flag").upper() == "Y"),
+                    int("PED" in _field(row, "Patent_No").upper()),
                     source_id,
                     raw,
                 ),
@@ -379,11 +747,19 @@ def ingest_orange_book(
                 """
                 INSERT INTO exclusivities (
                     product_id, exclusivity_code, exclusivity_expiry,
-                    source_file_id, raw_json
-                ) VALUES (?, ?, ?, ?, ?)
+                    ip_active_in_latest_snapshot, ip_first_seen_at, ip_last_seen_at,
+                    pediatric_extension_signal, source_file_id, raw_json
+                ) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
                 ON CONFLICT(
                     product_id, exclusivity_code, exclusivity_expiry
                 ) DO UPDATE SET
+                    ip_active_in_latest_snapshot = 1,
+                    ip_first_seen_at = COALESCE(
+                        exclusivities.ip_first_seen_at, excluded.ip_first_seen_at
+                    ),
+                    ip_last_seen_at = excluded.ip_last_seen_at,
+                    pediatric_extension_signal =
+                        excluded.pediatric_extension_signal,
                     source_file_id = excluded.source_file_id,
                     raw_json = excluded.raw_json
                 """,
@@ -391,6 +767,9 @@ def ingest_orange_book(
                     product_id,
                     _field(row, "Exclusivity_Code"),
                     _iso_date(_field(row, "Exclusivity_Date")),
+                    observed_at,
+                    observed_at,
+                    int(_field(row, "Exclusivity_Code").upper() == "PED"),
                     source_id,
                     raw,
                 ),
@@ -427,13 +806,37 @@ def ingest_drugs_fda(
         source_id = _register_source(
             connection, "Drugs@FDA", DRUGS_FDA_URL, source
         )
+        connection.execute(
+            """
+            UPDATE product_observations SET active_in_latest_snapshot = 0
+            WHERE source_name = 'Drugs@FDA'
+            """
+        )
         for row in _rows(source, "Products.txt", "\t"):
             application_row = applications.get(_field(row, "ApplNo"), {})
+            application_type = _field(application_row, "ApplType")
+            if not application_type:
+                suffix = _field(row, "ApplNo").zfill(6)
+                product_number = _field(row, "ProductNo")
+                candidates = connection.execute(
+                    """
+                    SELECT DISTINCT application_number
+                    FROM products
+                    WHERE application_number LIKE ?
+                      AND product_number = ?
+                      AND application_number NOT LIKE 'FDA%'
+                    """,
+                    (f"%{suffix}", product_number),
+                ).fetchall()
+                if len(candidates) == 1:
+                    application_type = re.sub(
+                        r"\d+$", "", candidates[0]["application_number"]
+                    )
             application = _application_number(
-                _field(row, "ApplNo"), _field(application_row, "ApplType")
+                _field(row, "ApplNo"), application_type
             )
             form_route = _field(row, "Form")
-            dosage_form, _, route = form_route.partition(";")
+            dosage_form, route, malformed_form_route = _split_form_route(form_route)
             status = statuses.get(
                 (_field(row, "ApplNo"), _field(row, "ProductNo")), ""
             )
@@ -443,6 +846,8 @@ def ingest_drugs_fda(
                 "marketing_status": status,
             }
             raw = json.dumps(combined_raw, ensure_ascii=False, sort_keys=True)
+            raw_ingredient = _field(row, "ActiveIngredient")
+            raw_strength = _field(row, "Strength")
             product_id = _upsert_product(
                 connection,
                 application_number=application,
@@ -456,19 +861,43 @@ def ingest_drugs_fda(
                 source_file_id=source_id,
                 raw_json=raw,
             )
-            for ingredient in _split_ingredients(_field(row, "ActiveIngredient")):
-                ingredient_id = _ingredient_id(connection, ingredient, raw)
-                connection.execute(
-                    """
-                    INSERT INTO product_ingredients (
-                        product_id, ingredient_id, strength, raw_json
-                    ) VALUES (?, ?, ?, ?)
-                    ON CONFLICT(product_id, ingredient_id) DO UPDATE SET
-                        strength = excluded.strength,
-                        raw_json = excluded.raw_json
-                    """,
-                    (product_id, ingredient_id, _field(row, "Strength"), raw),
-                )
-                counts["ingredients"] += 1
+            ingredient_count, mapping_quality = _replace_product_ingredients(
+                connection, product_id, raw_ingredient, raw_strength, raw
+            )
+            counts["ingredients"] += ingredient_count
+            _record_product_observation(
+                connection,
+                product_id=product_id,
+                source_file_id=source_id,
+                source_name="Drugs@FDA",
+                application_type=application_type,
+                sponsor_name=_field(application_row, "SponsorName"),
+                dosage_form_raw=dosage_form,
+                route_raw=route,
+                marketing_status=status,
+                raw_active_ingredient=raw_ingredient,
+                raw_strength=raw_strength,
+                mapping_quality=mapping_quality,
+                raw_json=raw,
+                malformed_form_route=malformed_form_route,
+            )
             counts["products"] += 1
+        connection.execute(
+            """
+            DELETE FROM products
+            WHERE NOT EXISTS (
+                SELECT 1 FROM product_observations po
+                WHERE po.product_id = products.id
+            )
+            """
+        )
+        connection.execute(
+            """
+            DELETE FROM ingredients
+            WHERE NOT EXISTS (
+                SELECT 1 FROM product_ingredients pi
+                WHERE pi.ingredient_id = ingredients.id
+            )
+            """
+        )
     return counts
