@@ -1,0 +1,3 @@
+Ingredient~DF;Route~Trade_Name~Applicant~Strength~Appl_Type~Appl_No~Product_No~TE_Code~Approval_Date~RLD~RS~Type~Applicant_Full_Name
+ALPHA DRUG~TABLET;ORAL~ALPHA TAB~ALPHA CO~10MG~N~000001~001~~Jan 01, 2000~RLD~RS~RX~Alpha Company LLC
+BETA DRUG; GAMMA DRUG~SOLUTION;INTRAVENOUS~BETA-GAMMA~BETA CO~5MG/ML; 2MG/ML~N~000002~001~~Approved prior to Jan 1, 1982~~~DISCN~Beta Company LLC

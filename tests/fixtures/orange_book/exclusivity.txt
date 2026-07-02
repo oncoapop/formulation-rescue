@@ -1,0 +1,2 @@
+Appl_Type~Appl_No~Product_No~Exclusivity_Code~Exclusivity_Date
+N~000001~001~NCE~Jan 01, 2025

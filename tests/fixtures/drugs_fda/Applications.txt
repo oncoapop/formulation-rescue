@@ -1,0 +1,3 @@
+ApplNo	ApplType	ApplPublicNotes	SponsorName
+000001	NDA		Alpha Company Updated
+000003	ANDA		Gamma Generics

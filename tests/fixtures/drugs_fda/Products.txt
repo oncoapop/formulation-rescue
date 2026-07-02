@@ -1,0 +1,3 @@
+ApplNo	ProductNo	Form	Strength	ReferenceDrug	DrugName	ActiveIngredient	ReferenceStandard
+000001	001	TABLET;ORAL	10MG	1	ALPHA TAB	Alpha Drug	1
+000003	001	CAPSULE;ORAL	20MG	0	DELTA CAP	DELTA DRUG	0

@@ -1,0 +1,3 @@
+MarketingStatusID	MarketingStatusDescription
+1	Prescription
+2	Discontinued
