@@ -1,6 +1,6 @@
 # Phase 1 Screening Summary
 
-Generated: 2026-07-02T07:15:12.090802+00:00
+Generated: 2026-07-02T07:33:03.633914+00:00
 
 Candidates scored: 2882
 Products: 51460
