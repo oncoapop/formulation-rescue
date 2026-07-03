@@ -12,10 +12,13 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 from .database import PROJECT_ROOT
+from .rescueability import DEFAULT_RESCUEABILITY_CSV
 from .scientific_review import DEFAULT_REVIEW_CSV
 
 DEFAULT_EXPORT_ROOT = PROJECT_ROOT / "exports"
 COPIED_REPORTS = (
+    "top100_rescueability_review.md",
+    "review_queues_summary.md",
     "top100_scientific_review.md",
     "phase3_label_enrichment_summary.md",
     "phase1_summary.md",
@@ -143,6 +146,17 @@ def _write_packet(path: Path, row: dict[str, str]) -> None:
         f"- Candidate hypothesis: {row.get('candidate_hypothesis')}",
         f"- Next evidence needed: {row.get('next_evidence_needed')}",
         "",
+        "## Phase 3.2 rescueability",
+        "",
+        f"- Rescueability score: {row.get('rescueability_score') or 'Not assessed'}",
+        f"- Rescueability tier: {row.get('rescueability_tier') or 'Not assessed'}",
+        f"- Review queue: {row.get('review_queue') or 'Not assessed'}",
+        f"- Primary rescue hypothesis type: {row.get('primary_rescue_hypothesis_type') or 'Not assessed'}",
+        f"- Family representative: {_yes(row.get('family_representative_flag'))}",
+        f"- Family representative ingredient: {row.get('family_representative_ingredient') or 'Not assessed'}",
+        f"- Independent duplicate-review reason: {row.get('duplicate_independent_review_reason') or 'None identified'}",
+        f"- Rescueability notes: {row.get('rescueability_notes') or 'Not assessed'}",
+        "",
         "## Reviewer notes",
         "",
         "- Manual disposition:",
@@ -173,10 +187,34 @@ This portable package supports human scientific review of 100 formulation-rescue
 
 ## Read first
 
-1. Open `top100_scientific_review.xlsx` for sorting, filtering, and recording decisions.
-2. Read `reports/top100_scientific_review.md` for the Phase 3.1 summary and aggregate counts.
-3. Use `candidate_index.csv` to locate an individual file under `candidate_packets/`.
-4. Consult `methods/` before interpreting scores or classifications.
+1. Start with `top100_rescueability_review.csv`; sort by `recommended_review_order`, then examine rescueability tier and review queue.
+2. Open `top100_scientific_review.xlsx` for the underlying Phase 3.1 evidence and editable review columns.
+3. Read `reports/top100_rescueability_review.md` and `reports/review_queues_summary.md` for Phase 3.2 summaries.
+4. Read `reports/top100_scientific_review.md` for the Phase 3.1 burden interpretation.
+5. Use `candidate_index.csv` to locate an individual file under `candidate_packets/`.
+6. Consult `methods/` before interpreting scores or classifications.
+
+## Phase 3.1 versus Phase 3.2
+
+Phase 3.1 identifies label and product burden, including administration, handling, safety, toxicity, and PK/dosing review triggers. Phase 3.2 separately estimates whether that burden is plausibly modifiable through formulation, route, dosing, exposure profile, handling, device, storage, or presentation changes. A high Phase 3.1 scientific signal score does not imply high rescueability.
+
+## Phase 3.2 review queues
+
+- `small_molecule_reformulation`: general small-molecule formulation questions.
+- `anti_infective_specialist`: infection, resistance, stewardship, or hospital-use context.
+- `oncology_specialist`: cytotoxics and oncology biologics or ADCs.
+- `biologic_delivery_specialist`: complex biologic, peptide, enzyme, protein, or toxin delivery.
+- `immunology_biologic`: immune-mechanism and immunomodulator warning context.
+- `acute_care_or_anaesthesia`: emergency, ICU, anaesthesia, paralytic, intrathecal, or acute administration.
+- `deprioritise_or_false_positive`: weak links, contextual signals, or non-representative duplicates without an independent rationale.
+
+## Rescueability tiers
+
+- `A_strong_near_term_review`: strongest non-conflicted representatives for immediate review.
+- `B_plausible_literature_review`: plausible but unresolved burden-to-fix hypotheses.
+- `C_specialist_only_review`: oncology, biologic, NTI, or other specialist-dependent cases.
+- `D_deprioritise`: weak, crowded, duplicate, or severely conflicted rationale.
+- `E_likely_false_positive`: detected signal likely does not represent a formulation-rescue opportunity.
 
 ## Using the spreadsheet
 
@@ -234,6 +272,14 @@ This package supports hypothesis generation, not validation. Keyword presence do
 Ingredient aggregation can obscure product-level differences. Labels may not cover all routes or presentations. Product marketing status does not explain discontinuation. Patent dates do not establish freedom to operate. The analysis does not validate formulation feasibility, stability, manufacturability, bioavailability, clinical utility, unmet need, commercial opportunity, comparator landscape, or regulatory strategy.
 
 Every candidate requires manual label review, current literature and product-landscape review, and—where flagged—specialist safety and regulatory assessment before prioritization.
+""",
+    "rescueability_method.md": """# Phase 3.2 Rescueability Method
+
+Phase 3.2 is a deterministic review-ranking layer distinct from the Phase 3.1 scientific burden score. It combines product status, route and administration burden, formulation handling, PK/dosing review triggers, label evidence quality, toxicity conflict, active-identity taxonomy, biologic or oncology complexity, and family-representative status.
+
+Ingredient names are normalized for common salts and biologic suffixes before curated taxonomy checks. Classical cytotoxics, oncology biologics/ADCs, immunomodulators, anti-infectives, and acute-care products are routed separately. Obvious salt, biosimilar, suffix, and coformulation families retain every row, while deterministic representative selection reduces duplicate review. A duplicate receives independent consideration only when current records indicate a distinct route, presentation, coformulation, or other review rationale.
+
+The rescueability score estimates review priority, not probability of success. Tiers and queues do not establish formulation feasibility, clinical utility, regulatory eligibility, patent freedom, commercial viability, or a validated development opportunity.
 """,
 }
 
@@ -400,15 +446,17 @@ def _manifest_description(relative: str) -> tuple[str, str]:
     if relative == "MANIFEST.md":
         return "Complete package file inventory.", "Generated from package contents."
     if relative == "candidate_index.csv":
-        return "Compact index of all candidate packets.", str(DEFAULT_REVIEW_CSV.relative_to(PROJECT_ROOT))
+        return "Compact index of all candidate packets.", "Generated from the packaged top-100 review dataset."
     if relative == "top100_scientific_review.csv":
         return "Full Phase 3.1 review dataset.", str(DEFAULT_REVIEW_CSV.relative_to(PROJECT_ROOT))
+    if relative == "top100_rescueability_review.csv":
+        return "Full Phase 3.2 rescueability ranking and review queues.", str(DEFAULT_RESCUEABILITY_CSV.relative_to(PROJECT_ROOT))
     if relative == "top100_scientific_review.xlsx":
         return "Filterable review workbook with editable review columns.", "Generated from top100_scientific_review.csv."
     if relative == "top100_scientific_review.md":
         return "Readable top-100 candidate table.", "Generated from top100_scientific_review.csv."
     if relative.startswith("candidate_packets/"):
-        return "Individual candidate scientific review packet.", "Generated from top100_scientific_review.csv."
+        return "Individual Phase 3.1 and Phase 3.2 candidate review packet.", "Generated from the packaged top-100 review dataset."
     if relative.startswith("reports/"):
         return "Project report retained for review context.", relative
     if relative.startswith("methods/"):
@@ -447,10 +495,13 @@ def build_review_package(
     review_csv: Path = DEFAULT_REVIEW_CSV,
     export_root: Path = DEFAULT_EXPORT_ROOT,
     package_date: date | None = None,
+    *,
+    rescueability_csv: Path | None = None,
+    package_name: str | None = None,
 ) -> dict[str, object]:
     """Create the directory and ZIP archive for the existing fixed review set."""
     package_date = package_date or date.today()
-    name = f"formulation_rescue_review_package_{package_date:%Y%m%d}"
+    name = package_name or f"formulation_rescue_review_package_{package_date:%Y%m%d}"
     package = export_root / name
     package.mkdir(parents=True, exist_ok=True)
     generated_at = _timestamp()
@@ -460,16 +511,29 @@ def build_review_package(
         columns = list(reader.fieldnames or [])
     if len(rows) != 100:
         raise ValueError(f"Expected fixed top-100 review input; found {len(rows)} rows")
+    packet_rows = rows
+    if rescueability_csv is not None:
+        with rescueability_csv.open(newline="", encoding="utf-8") as handle:
+            rescueability_reader = csv.DictReader(handle)
+            packet_rows = list(rescueability_reader)
+        if len(packet_rows) != 100:
+            raise ValueError(
+                f"Expected fixed top-100 rescueability input; found {len(packet_rows)} rows"
+            )
 
     _write_readme(package / "README.md")
     shutil.copyfile(review_csv, package / "top100_scientific_review.csv")
+    if rescueability_csv is not None:
+        shutil.copyfile(
+            rescueability_csv, package / "top100_rescueability_review.csv"
+        )
     _write_xlsx(package / "top100_scientific_review.xlsx", rows)
     _write_review_markdown(package / "top100_scientific_review.md", rows)
 
     packets = package / "candidate_packets"
     packets.mkdir(exist_ok=True)
     index_rows = []
-    for row in rows:
+    for row in packet_rows:
         packet_relative = f"candidate_packets/{_packet_name(row)}"
         _write_packet(package / packet_relative, row)
         index_rows.append({**row, "candidate_packet_path": packet_relative})

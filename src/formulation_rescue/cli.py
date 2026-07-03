@@ -104,6 +104,8 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument(
         "--export-root", type=Path, default=PROJECT_ROOT / "exports"
     )
+    package.add_argument("--rescueability-csv", type=Path)
+    package.add_argument("--package-name")
     rescueability = subparsers.add_parser("rank-rescueability")
     rescueability.add_argument("--input", type=Path, default=DEFAULT_REVIEW_CSV)
     rescueability.add_argument("--output", type=Path, default=DEFAULT_RESCUEABILITY_CSV)
@@ -185,7 +187,12 @@ def run(args: argparse.Namespace) -> int:
         print(f"Reviewed {len(rows)} scientific rescue signals")
         return 0
     if args.command == "build-review-package":
-        result = build_review_package(args.review_csv, args.export_root)
+        result = build_review_package(
+            args.review_csv,
+            args.export_root,
+            rescueability_csv=args.rescueability_csv,
+            package_name=args.package_name,
+        )
         print(
             f"Review package: files={result['file_count']}, "
             f"candidate_packets={result['candidate_packets']}, "
