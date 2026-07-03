@@ -16,3 +16,7 @@ data/processed/*
 
 # Generated collaborator export packages
 exports/
+
+# Local Confluence update audit artefacts
+reports/confluence_backups/
+reports/confluence_updates/
