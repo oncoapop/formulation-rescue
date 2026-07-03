@@ -6,7 +6,7 @@ import argparse
 from datetime import date
 from pathlib import Path
 
-from .database import DEFAULT_DB, initialize_database, score_phase1
+from .database import DEFAULT_DB, PROJECT_ROOT, initialize_database, score_phase1
 from .dailymed import (
     DEFAULT_DAILYMED_RAW,
     DEFAULT_ENRICHED_CSV,
@@ -26,6 +26,12 @@ from .fda import (
     ingest_drugs_fda,
     ingest_orange_book,
 )
+from .scientific_review import (
+    DEFAULT_REVIEW_CSV,
+    DEFAULT_REVIEW_REPORT,
+    build_top100_scientific_review,
+)
+from .review_package import build_review_package
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -82,6 +88,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--report", type=Path, default=DEFAULT_PHASE3_REPORT
     )
     scientific_export.add_argument("--limit", type=int, default=100)
+    review = subparsers.add_parser("review-top-scientific-signals")
+    review.add_argument("--input", type=Path, default=DEFAULT_SIGNALS_CSV)
+    review.add_argument("--output", type=Path, default=DEFAULT_REVIEW_CSV)
+    review.add_argument("--report", type=Path, default=DEFAULT_REVIEW_REPORT)
+    review.add_argument("--raw-dir", type=Path, default=DEFAULT_DAILYMED_RAW)
+    package = subparsers.add_parser("build-review-package")
+    package.add_argument("--review-csv", type=Path, default=DEFAULT_REVIEW_CSV)
+    package.add_argument(
+        "--export-root", type=Path, default=PROJECT_ROOT / "exports"
+    )
     return parser
 
 
@@ -150,6 +166,20 @@ def run(args: argparse.Namespace) -> int:
             limit=args.limit,
         )
         print("Scientific rescue export: " + _format_counts(counts))
+        return 0
+    if args.command == "review-top-scientific-signals":
+        rows = build_top100_scientific_review(
+            args.input, args.output, args.report, args.raw_dir
+        )
+        print(f"Reviewed {len(rows)} scientific rescue signals")
+        return 0
+    if args.command == "build-review-package":
+        result = build_review_package(args.review_csv, args.export_root)
+        print(
+            f"Review package: files={result['file_count']}, "
+            f"candidate_packets={result['candidate_packets']}, "
+            f"path={result['package_path']}"
+        )
         return 0
     raise AssertionError(f"Unhandled command: {args.command}")
 
