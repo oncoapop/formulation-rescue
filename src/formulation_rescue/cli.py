@@ -32,6 +32,12 @@ from .scientific_review import (
     build_top100_scientific_review,
 )
 from .review_package import build_review_package
+from .rescueability import (
+    DEFAULT_QUEUES_REPORT,
+    DEFAULT_RESCUEABILITY_CSV,
+    DEFAULT_RESCUEABILITY_REPORT,
+    build_rescueability_review,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -98,6 +104,11 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument(
         "--export-root", type=Path, default=PROJECT_ROOT / "exports"
     )
+    rescueability = subparsers.add_parser("rank-rescueability")
+    rescueability.add_argument("--input", type=Path, default=DEFAULT_REVIEW_CSV)
+    rescueability.add_argument("--output", type=Path, default=DEFAULT_RESCUEABILITY_CSV)
+    rescueability.add_argument("--report", type=Path, default=DEFAULT_RESCUEABILITY_REPORT)
+    rescueability.add_argument("--queues-report", type=Path, default=DEFAULT_QUEUES_REPORT)
     return parser
 
 
@@ -180,6 +191,12 @@ def run(args: argparse.Namespace) -> int:
             f"candidate_packets={result['candidate_packets']}, "
             f"path={result['package_path']}"
         )
+        return 0
+    if args.command == "rank-rescueability":
+        rows = build_rescueability_review(
+            args.input, args.output, args.report, args.queues_report
+        )
+        print(f"Ranked rescueability for {len(rows)} candidates")
         return 0
     raise AssertionError(f"Unhandled command: {args.command}")
 
