@@ -7,6 +7,17 @@ from datetime import date
 from pathlib import Path
 
 from .database import DEFAULT_DB, initialize_database, score_phase1
+from .dailymed import (
+    DEFAULT_DAILYMED_RAW,
+    DEFAULT_ENRICHED_CSV,
+    DEFAULT_PHASE3_REPORT,
+    DEFAULT_SCIENCE_REVIEW_CSV,
+    DEFAULT_SIGNALS_CSV,
+    download_dailymed_labels,
+    export_scientific_rescue_signals,
+    ingest_dailymed_labels,
+    score_label_burden,
+)
 from .export import DEFAULT_CSV, DEFAULT_REPORT, export_phase1
 from .fda import (
     DEFAULT_DRUGS_FDA_ARCHIVE,
@@ -43,6 +54,34 @@ def build_parser() -> argparse.ArgumentParser:
     phase1.add_argument("--as-of", type=date.fromisoformat)
     phase1.add_argument("--output", type=Path, default=DEFAULT_CSV)
     phase1.add_argument("--report", type=Path, default=DEFAULT_REPORT)
+    dailymed_download = subparsers.add_parser("download-dailymed-labels")
+    dailymed_download.add_argument(
+        "--input", type=Path, default=DEFAULT_SCIENCE_REVIEW_CSV
+    )
+    dailymed_download.add_argument(
+        "--raw-dir", type=Path, default=DEFAULT_DAILYMED_RAW
+    )
+    dailymed_download.add_argument("--limit", type=int)
+    dailymed_download.add_argument("--refresh", action="store_true")
+    dailymed_download.add_argument("--delay", type=float, default=0.1)
+    dailymed_ingest = subparsers.add_parser("ingest-dailymed-labels")
+    dailymed_ingest.add_argument(
+        "--raw-dir", type=Path, default=DEFAULT_DAILYMED_RAW
+    )
+    subparsers.add_parser("score-label-burden")
+    scientific_export = subparsers.add_parser(
+        "export-scientific-rescue-signals"
+    )
+    scientific_export.add_argument(
+        "--enriched-output", type=Path, default=DEFAULT_ENRICHED_CSV
+    )
+    scientific_export.add_argument(
+        "--signals-output", type=Path, default=DEFAULT_SIGNALS_CSV
+    )
+    scientific_export.add_argument(
+        "--report", type=Path, default=DEFAULT_PHASE3_REPORT
+    )
+    scientific_export.add_argument("--limit", type=int, default=100)
     return parser
 
 
@@ -83,6 +122,34 @@ def run(args: argparse.Namespace) -> int:
             f"Pipeline complete: {_format_counts(orange_counts)} Orange Book; "
             f"{_format_counts(drugs_counts)} Drugs@FDA; {count} candidates"
         )
+        return 0
+    if args.command == "download-dailymed-labels":
+        counts = download_dailymed_labels(
+            args.input,
+            args.raw_dir,
+            limit=args.limit,
+            refresh=args.refresh,
+            delay_seconds=args.delay,
+        )
+        print("DailyMed download: " + _format_counts(counts))
+        return 0
+    if args.command == "ingest-dailymed-labels":
+        counts = ingest_dailymed_labels(args.raw_dir, args.db)
+        print("DailyMed ingestion: " + _format_counts(counts))
+        return 0
+    if args.command == "score-label-burden":
+        count = score_label_burden(args.db)
+        print(f"Scored DailyMed burden for {count} candidates")
+        return 0
+    if args.command == "export-scientific-rescue-signals":
+        counts = export_scientific_rescue_signals(
+            args.db,
+            args.enriched_output,
+            args.signals_output,
+            args.report,
+            limit=args.limit,
+        )
+        print("Scientific rescue export: " + _format_counts(counts))
         return 0
     raise AssertionError(f"Unhandled command: {args.command}")
 

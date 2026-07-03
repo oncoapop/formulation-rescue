@@ -19,7 +19,8 @@ class TriageResult:
 _CONTRAST = re.compile(
     r"\b(METRIZOATE|IOHEXOL|IOPAMIDOL|DIATRIZOATE|IODIXANOL|IOVERSOL|"
     r"IOTHALAMATE|IOPROMIDE|IOPENTOL|GADOLINIUM|GADOBUTROL|GADOTERATE|"
-    r"GADOTERIDOL|GADODIAMIDE|GADOBENATE|GADOXETATE)\b"
+    r"GADOTERIDOL|GADODIAMIDE|GADOBENATE|GADOXETATE|GADO[A-Z]+|"
+    r"FERUMOXIDES|FERUMOXSIL)\b"
 )
 _RADIO = re.compile(
     r"(\bI[- ]?1(?:23|25|31)\b|\bCR[- ]?51\b|\bTC[- ]?99M?\b|"
@@ -29,7 +30,7 @@ _RADIO = re.compile(
 )
 _ELECTROLYTE = re.compile(
     r"^(CALCIUM|POTASSIUM|SODIUM CHLORIDE|MAGNESIUM|ZINC|PHOSPHATE|"
-    r"DEXTROSE|WATER)(\b|$)"
+    r"DEXTROSE|WATER|PANTOTHENIC ACID)(\b|$)"
 )
 _BLOOD = re.compile(
     r"\b(ALBUMIN( HUMAN)?|SERUM ALBUMIN|PLASMA|WHOLE BLOOD|"
@@ -41,7 +42,8 @@ _VACCINE = re.compile(
 )
 _DIAGNOSTIC = re.compile(
     r"\b(DIAGNOSTIC|FLUORESCEIN|INDOCYANINE GREEN|"
-    r"COEXISTENCE ASSAY|SKIN TEST|BREATH TEST)\b"
+    r"COEXISTENCE ASSAY|SKIN TEST|BREATH TEST|INULIN|"
+    r"HISTAMINE PHOSPHATE|MEGLUMINE)\b"
 )
 _DEVICE_LIKE = re.compile(
     r"\b(IRRIGATION|DIALYSIS|CATHETER|LUBRICANT|SURGICAL|"
@@ -59,7 +61,7 @@ _OBSOLETE_ANTIBIOTIC = re.compile(
 )
 _BIOLOGIC_NAME = re.compile(
     r"(MAB|CEPT|TIDE|GLUTIDE|INTERFERON|INTERLEUKIN|"
-    r"ERYTHROPOIETIN|INSULIN|SOMATROPIN|ENZYME)$"
+    r"ERYTHROPOIETIN|INSULIN|SOMATROPIN|CALCITONIN|ENZYME)$"
 )
 
 _EXCLUDED_CLASSES = {
@@ -119,7 +121,11 @@ def classify_candidate(
         )
     elif _OBSOLETE_ANTIBIOTIC.search(name):
         category, subclass = "obsolete_antibiotic", "legacy_systemic_antibiotic"
-    elif "BLA" in application_types or _BIOLOGIC_NAME.search(name):
+    elif (
+        "BLA" in application_types
+        or _BIOLOGIC_NAME.search(name)
+        or "CALCITONIN" in name
+    ):
         category, subclass = "biologic_or_peptide", (
             "peptide" if name.endswith(("TIDE", "GLUTIDE")) else "biologic"
         )

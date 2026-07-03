@@ -158,6 +158,42 @@ CREATE TABLE IF NOT EXISTS phase1_candidates (
     scored_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS dailymed_label_evidence (
+    ingredient_id INTEGER PRIMARY KEY REFERENCES ingredients(id) ON DELETE CASCADE,
+    ingredient_name TEXT NOT NULL,
+    retrieval_status TEXT NOT NULL,
+    label_match_quality TEXT NOT NULL,
+    label_source_setid_or_id TEXT,
+    label_title TEXT,
+    label_last_updated_if_available TEXT,
+    metadata_path TEXT,
+    label_path TEXT,
+    has_boxed_warning INTEGER NOT NULL DEFAULT 0,
+    has_serious_warning_signal INTEGER NOT NULL DEFAULT 0,
+    has_infusion_or_injection_reaction_signal INTEGER NOT NULL DEFAULT 0,
+    has_hypersensitivity_signal INTEGER NOT NULL DEFAULT 0,
+    has_reconstitution_signal INTEGER NOT NULL DEFAULT 0,
+    has_special_preparation_signal INTEGER NOT NULL DEFAULT 0,
+    has_storage_burden_signal INTEGER NOT NULL DEFAULT 0,
+    has_light_protection_signal INTEGER NOT NULL DEFAULT 0,
+    has_refrigeration_signal INTEGER NOT NULL DEFAULT 0,
+    has_short_post_reconstitution_stability_signal INTEGER NOT NULL DEFAULT 0,
+    has_pediatric_gap_signal INTEGER NOT NULL DEFAULT 0,
+    has_renal_hepatic_adjustment_signal INTEGER NOT NULL DEFAULT 0,
+    administration_burden_terms TEXT NOT NULL DEFAULT '',
+    safety_burden_terms TEXT NOT NULL DEFAULT '',
+    formulation_burden_terms TEXT NOT NULL DEFAULT '',
+    score_administration_burden INTEGER NOT NULL DEFAULT 0,
+    score_safety_burden INTEGER NOT NULL DEFAULT 0,
+    score_formulation_handling_burden INTEGER NOT NULL DEFAULT 0,
+    score_pediatric_gap INTEGER NOT NULL DEFAULT 0,
+    score_route_conversion_opportunity INTEGER NOT NULL DEFAULT 0,
+    score_label_evidence_confidence INTEGER NOT NULL DEFAULT 0,
+    scientific_rescue_signal_score INTEGER NOT NULL DEFAULT 0,
+    scientific_review_rationale TEXT NOT NULL DEFAULT '',
+    ingested_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_product_ingredients_ingredient
     ON product_ingredients(ingredient_id);
 CREATE INDEX IF NOT EXISTS idx_ingredients_normalized_name

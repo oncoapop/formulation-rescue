@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document xmlns="urn:hl7-org:v3">
+  <section>
+    <code code="34066-1"/>
+    <title>BOXED WARNING</title>
+    <text>Serious and fatal adverse reactions have occurred.</text>
+  </section>
+  <section>
+    <title>Dosage and Administration</title>
+    <text>
+      Reconstitute the vial using aseptic technique, then dilute before intravenous
+      infusion. Administer slowly over 60 minutes and monitor during administration.
+      Infusion-related reactions including anaphylaxis and hypersensitivity may occur.
+    </text>
+  </section>
+  <section>
+    <title>Storage and Handling</title>
+    <text>
+      Store refrigerated at 2 degrees C to 8 degrees C. Protect from light.
+      After reconstitution, use within 24 hours and discard unused solution.
+    </text>
+  </section>
+  <section>
+    <title>Pediatric Use</title>
+    <text>
+      Safety and effectiveness in pediatric patients have not been established.
+    </text>
+  </section>
+  <section>
+    <title>Use in Specific Populations</title>
+    <text>Dose adjustment is recommended in renal impairment.</text>
+  </section>
+</document>

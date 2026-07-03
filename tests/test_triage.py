@@ -17,6 +17,9 @@ from formulation_rescue.triage import classify_candidate
         ("ALBIGLUTIDE", "BLA", "biologic_or_peptide", False),
         ("BREXANOLONE", "NDA", "therapeutic_drug", False),
         ("CEFMETAZOLE SODIUM", "NDA", "obsolete_antibiotic", False),
+        ("GADOFOSVESET TRISODIUM", "NDA", "contrast_agent", True),
+        ("FERUMOXIDES", "NDA", "contrast_agent", True),
+        ("CALCITONIN HUMAN", "NDA", "biologic_or_peptide", False),
     ],
 )
 def test_required_triage_examples(

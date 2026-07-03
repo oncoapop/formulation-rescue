@@ -136,3 +136,51 @@ The science-review CSV removes only rows with
 antibiotic classes remain in that review queue with moderated priority.
 Classification is a reproducible screening aid, not a pharmacologic or
 regulatory determination.
+
+## Phase 3A DailyMed enrichment
+
+DailyMed enrichment uses the public v2 SPL service and a per-ingredient cache
+under `data/raw/dailymed/`. Metadata searches and selected raw SPL XML labels
+are retained for reproducibility. Cached matches and no-matches are not
+downloaded again unless `--refresh` is supplied.
+
+```bash
+PYTHONPATH=src python3 -m formulation_rescue.cli download-dailymed-labels --limit 100
+PYTHONPATH=src python3 -m formulation_rescue.cli ingest-dailymed-labels
+PYTHONPATH=src python3 -m formulation_rescue.cli score-label-burden
+PYTHONPATH=src python3 -m formulation_rescue.cli export-scientific-rescue-signals
+```
+
+Omit `--limit` to process the complete science-review CSV. The downloader is
+deliberately resumable; bounded passes can be increased without repeating
+cached requests. Outputs are:
+
+- `data/processed/phase3_label_enriched_candidates.csv`
+- `data/processed/top_scientific_rescue_signals.csv`
+- `reports/phase3_label_enrichment_summary.md`
+
+The shortlist requires a high/exact label match and at least one extracted
+administration, safety, formulation-handling, or pediatric burden signal.
+Keyword evidence is hypothesis generation only and requires scientific review
+against the original label and relevant product presentation.
+
+### Scheduled DailyMed batches
+
+`scripts/run_dailymed_batch.sh` processes the next 100 uncached candidates,
+waits 0.5 seconds between candidates, then ingests, scores, and regenerates the
+Phase 3 outputs. It exits cleanly after every candidate has a cached matched or
+no-match manifest.
+
+`cron/dailymed-batch.cron` is an install-ready example that runs one batch
+hourly at minute 17. It uses `flock` to prevent overlapping runs and writes its
+log to `data/interim/dailymed_batch.log`. The cron definition is not installed
+automatically.
+
+The runner can be checked without network access:
+
+```bash
+DRY_RUN=1 scripts/run_dailymed_batch.sh
+```
+
+Batch size and request delay can be overridden through `BATCH_SIZE` and
+`REQUEST_DELAY_SECONDS`.

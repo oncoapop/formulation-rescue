@@ -1,0 +1,6 @@
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# One cache-aware batch of 100 candidates hourly at minute 17.
+# flock skips a run if the previous batch is still active.
+17 * * * * /usr/bin/flock -n /tmp/formulation-rescue-dailymed.lock /home/openclaw/openclaw-projects/formulation-rescue/scripts/run_dailymed_batch.sh >> /home/openclaw/openclaw-projects/formulation-rescue/data/interim/dailymed_batch.log 2>&1

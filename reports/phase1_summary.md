@@ -1,6 +1,6 @@
 # Phase 1 Screening Summary
 
-Generated: 2026-07-02T08:17:44.534105+00:00
+Generated: 2026-07-02T08:40:18.713955+00:00
 
 Candidates scored: 2882
 Products: 51457
@@ -20,18 +20,18 @@ Exclusivities: 2191
 
 | Triage class | Candidates |
 |---|---:|
-| therapeutic_drug | 2289 |
-| biologic_or_peptide | 414 |
+| therapeutic_drug | 2269 |
+| biologic_or_peptide | 417 |
 | radiopharmaceutical | 58 |
-| electrolyte_mineral_nutrient | 36 |
+| electrolyte_mineral_nutrient | 37 |
+| contrast_agent | 27 |
 | controlled_substance_or_abuse_risk | 26 |
 | device_like_or_procedure_agent | 21 |
-| contrast_agent | 20 |
 | obsolete_antibiotic | 14 |
-| diagnostic_agent | 3 |
+| diagnostic_agent | 12 |
 | blood_or_albumin_product | 1 |
 
-Science-review candidates retained: 2743
+Science-review candidates retained: 2726
 
 ## Highest-scoring candidates
 
