@@ -1,0 +1,24 @@
+# Confluence update report
+
+- Page ID: `153780225`
+- Page title: `Reformulation Rescue`
+- Update HTTP status: `200`
+- Verification HTTP status: `200`
+- Old version: `5`
+- New version: `6`
+- Section action: append-only managed workflow section
+- Existing content before the appended section preserved byte-for-byte: yes
+- Workflow heading text present: yes
+- Confluence TOC macro present: yes
+- Executive summary present: yes
+- Final Next actions content present: yes
+- Exact HTML comment markers retained by Confluence: no
+- Marker issue: Confluence storage normalization stripped both HTML comments during the successful update.
+- Local backup: `reports/confluence_backups/reformulation_rescue_page_153780225_before_20260703T161428Z.html`
+- Proposed section: `reports/confluence_updates/reformulation_rescue_workflow_summary_20260703T161428Z.md`
+- Dry-run diff: `reports/confluence_updates/reformulation_rescue_workflow_summary_diff_20260703T161428Z.md`
+- Raw candidate CSVs or generated exports uploaded: no
+- Attachments uploaded: no
+- Secrets, tokens, credential values, or authorization headers printed or written: no
+- Final page URL: https://yaps.atlassian.net/wiki/spaces/OpenClaw/pages/153780225/Reformulation+Rescue
+- Errors or unresolved issues: exact HTML comment markers were stripped; no corrective second write was attempted.
